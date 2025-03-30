@@ -2,74 +2,57 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
+	"github.com/dustin/go-humanize"
 	"log"
 	"os"
 	"strconv"
-
-	"github.com/dustin/go-humanize"
+	"strings"
 )
 
 func main() {
 	fmt.Println(`
-██████  ██    ██ ██████   ██████  ███████ ████████     ███████  ██████ ██   ██ ███████ ██████  ██    ██ ██      ███████ ██████  
-██   ██ ██    ██ ██   ██ ██       ██         ██        ██      ██      ██   ██ ██      ██   ██ ██    ██ ██      ██      ██   ██ 
-██████  ██    ██ ██   ██ ██   ███ █████      ██        ███████ ██      ███████ █████   ██   ██ ██    ██ ██      █████   ██████  
-██   ██ ██    ██ ██   ██ ██    ██ ██         ██             ██ ██      ██   ██ ██      ██   ██ ██    ██ ██      ██      ██   ██ 
-██████   ██████  ██████   ██████  ███████    ██        ███████  ██████ ██   ██ ███████ ██████   ██████  ███████ ███████ ██   ██`)
+██████╗ ██╗   ██╗██████╗  ██████╗ ███████╗████████╗     ██████╗ █████╗ ██╗      ██████╗██╗   ██╗██╗      █████╗ ████████╗ ██████╗ ██████╗ 
+██╔══██╗██║   ██║██╔══██╗██╔════╝ ██╔════╝╚══██╔══╝    ██╔════╝██╔══██╗██║     ██╔════╝██║   ██║██║     ██╔══██╗╚══██╔══╝██╔═══██╗██╔══██╗
+██████╔╝██║   ██║██║  ██║██║  ███╗█████╗     ██║       ██║     ███████║██║     ██║     ██║   ██║██║     ███████║   ██║   ██║   ██║██████╔╝
+██╔══██╗██║   ██║██║  ██║██║   ██║██╔══╝     ██║       ██║     ██╔══██║██║     ██║     ██║   ██║██║     ██╔══██║   ██║   ██║   ██║██╔══██╗
+██████╔╝╚██████╔╝██████╔╝╚██████╔╝███████╗   ██║       ╚██████╗██║  ██║███████╗╚██████╗╚██████╔╝███████╗██║  ██║   ██║   ╚██████╔╝██║  ██║
+╚═════╝  ╚═════╝ ╚═════╝  ╚═════╝ ╚══════╝   ╚═╝        ╚═════╝╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝`)
 
 	reader := bufio.NewReader(os.Stdin)
+
 	for {
 		fmt.Println("Select the percentages that you want to use")
-		fmt.Println("Percentage for Necessities: ")
 
-		necAmt, err := reader.ReadString('\n')
+		necAmt := readAndConvert("Percentage for Necessities: ")
+		wantsAmt := readAndConvert("Percentage for Wants: ")
+		savingsAmt := readAndConvert("Percentage for Savings: ")
+		incomeAmt := readAndConvert("Incomes: ")
+
+		necPer, wantPer, savPer, err := makeCalculation(necAmt, wantsAmt, savingsAmt, incomeAmt)
 		if err != nil {
-			log.Fatal(err)
+			println(err.Error())
+			continue
 		}
-
-		fmt.Println("Percentage for Wants: ")
-		wantsAmt, err := reader.ReadString('\n')
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		fmt.Println("Percentage for Savings / Debt: ")
-		savingsAmt, err := reader.ReadString('\n')
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		fmt.Println("Income: ")
-		incomeAmt, err := reader.ReadString('\n')
-
-		necAmtInt, err := strconv.Atoi(necAmt[:len(necAmt)-1])
-		wantsAmtInt, err := strconv.Atoi(wantsAmt[:len(wantsAmt)-1])
-		savingsAmtInt, err := strconv.Atoi(savingsAmt[:len(savingsAmt)-1])
-		incomeAmtInt, err := strconv.Atoi(incomeAmt[:len(incomeAmt)-1])
-
-		necPer, wantPer, savPer := makeCalculation(necAmtInt, wantsAmtInt, savingsAmtInt, incomeAmtInt)
 
 		fmt.Println("Your percentages are: ")
 
-		fmt.Printf(`
-	Necessities: %s,
-	Wants: %s,
-	Savings / Debt: %s,
-    Income: %s,
-`, humanize.Commaf(necPer), humanize.Commaf(wantPer), humanize.Commaf(savPer), humanize.Comma(int64(incomeAmtInt)))
+		fmt.Printf("%-20s%-20v%-20s\n", "------------------", "-----------", "------")
+		fmt.Printf("%-20s%-20s%-20s\n", "Category", "Percentage", "Amount")
+		fmt.Printf("%-20s%-20v%-20s\n", "------------------", "-----------", "------")
+		fmt.Printf("%-20s%%%-20v%-20s\n", "Necessities", necAmt, humanize.Commaf(necPer))
+		fmt.Printf("%-20s%%%-20v%-20s\n", "Wants", wantsAmt, humanize.Commaf(wantPer))
+		fmt.Printf("%-20s%%%-20v%-20s\n", "Savings", savingsAmt, humanize.Commaf(savPer))
+		fmt.Printf("%-20s%-20v%-20s\n", "------------------", "-----------", "------")
 
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		fmt.Println("Do you want to calculate a different income? (y/n)")
+		fmt.Println("\nDo you want to calculate a different income? (y/n)")
 		restartProgram, err := reader.ReadString('\n')
 		if err != nil {
 			log.Fatal(err)
 		}
-		if restartProgram[:1] != "y" {
-			println("Have a nice day :)")
+		if restartProgram = strings.TrimSuffix(restartProgram, "\n"); restartProgram != "y" {
+			println("Have a nice day 💙")
 			return
 		}
 
@@ -77,10 +60,28 @@ func main() {
 
 }
 
-func makeCalculation(nec, want, sav, income int) (necPer, wantPer, savPer float64) {
+func makeCalculation(nec, want, sav, income int) (necPer, wantPer, savPer float64, err error) {
+	if nec+want+sav != 100 {
+		return 0.0, 0.0, 0.0, errors.New("Total of percentages cannot be more than 100%, please try again 🫡")
+	}
 	necPer = float64(income) * (float64(nec) / 100.0)
 	wantPer = float64(income) * (float64(want) / 100.0)
 	savPer = float64(income) * (float64(sav) / 100.0)
 
-	return
+	return necPer, wantPer, savPer, nil
+}
+
+func readAndConvert(prompt string) int {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print(prompt)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		log.Fatal(err)
+	}
+	input = strings.TrimSuffix(input, "\n")
+	value, err := strconv.Atoi(input)
+	if err != nil {
+		log.Fatal("Invalid input")
+	}
+	return value
 }
